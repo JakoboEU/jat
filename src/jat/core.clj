@@ -21,7 +21,7 @@
 (defn execute-test [test buildnum run-time]
   (let [old-test-result (load-results test)
         test-execution (junit/run-test test)
-        latest-result (TestResult. buildnum run-time (:error-type test-execution) (:exception test-execution) 0)
+        latest-result (TestResult. buildnum run-time (:error-type test-execution) (:exception test-execution) (:duration test-execution))
         new-test-result (TestResults. (:test-class old-test-result) (:test-method old-test-result) (cons latest-result (:results old-test-result)))]
     (store-results old-test-result new-test-result)))
   

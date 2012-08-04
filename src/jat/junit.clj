@@ -2,7 +2,7 @@
 
 (defrecord Test [test-class test-method junit-version])
 
-(defrecord Failure [error-type exception])
+(defrecord Failure [error-type exception duration])
 
 (defn- junit-version [junit-class]
   "Detects whether the unit test is junit 3 or junit 4 and returns the resulting keyword."
@@ -66,18 +66,21 @@
 (defmethod invoke-teardown-methods :junit3 [test inst] 
   (invoke-methods inst (methods is-junit3-teardown (:test-class test))))
 
-(defn- handle-error [test exception]
+(defn duration-since [starttime]
+  (- (java.lang.System/currentTimeMillis) starttime))
+
+(defn- handle-error [test exception starttime]
   "Handle a test error and decide whether the test failed or errored"
   (let [actualexception (root-cause exception)]
     (println "Got error in test " (:method test))
     (print-stack-trace actualexception)
     (cond
       (= (java.lang.Class/forName "junit.framework.AssertionFailedError")  (. actualexception getClass)) 
-      (Failure. :fail actualexception)
+      (Failure. :fail actualexception (duration-since starttime))
       (= (java.lang.Class/forName "java.lang.AssertionError") (. actualexception getClass)) 
-      (Failure. :fail actualexception)
+      (Failure. :fail actualexception (duration-since starttime))
       :else 
-      (Failure. :error actualexception))))
+      (Failure. :error actualexception (duration-since starttime)))))
 
 (defn run-test [test]
   "Runs the given test ensuring it is correctly set up and torn down."
@@ -89,7 +92,7 @@
 	      (invoke-setup-methods test instance)
 	      (. (:test-method test) invoke instance test-args)
 	      (invoke-teardown-methods test instance)
-           (Failure. :passed nil))
-	    (catch java.lang.Throwable error (handle-error test error)))))
+           (Failure. :passed nil (duration-since starttime)))
+	    (catch java.lang.Throwable error (handle-error test error starttime)))))
     
 
