@@ -43,6 +43,6 @@
   (let [tests (flatten (map junit/create-tests-from (:test-classes configuration)))
         buildnum (:buildnum configuration)
         curtime (:run-time configuration)]
-    (map (fn [t] (execute-test t buildnum curtime)) tests)))
+    (pmap (fn [t] (execute-test t buildnum curtime)) tests)))
   
 
