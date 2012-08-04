@@ -18,10 +18,24 @@
     (db/update-test-results old-test-result new-test-result)
     (db/save-test-results new-test-result)))
 
+(defn stack-trace-to-string [exception] 
+  (let [out (java.io.StringWriter.)
+        pw (java.io.PrintWriter. out)]
+    (.printStackTrace exception pw)
+    (.toString out)))
+
+(defn error-message [test-execution]
+  (let [exception (:exception test-execution)
+        error-type (:error-type test-execution)]
+    (cond
+      (= :errored error-type) (stack-trace-to-string exception)
+      (= :failed error-type) (.getMessage exception)
+      :else nil)))
+
 (defn execute-test [test buildnum run-time]
   (let [old-test-result (load-results test)
         test-execution (junit/run-test test)
-        latest-result (TestResult. buildnum run-time (:error-type test-execution) (:exception test-execution) (:duration test-execution))
+        latest-result (TestResult. buildnum run-time (:error-type test-execution) (error-message test-execution) (:duration test-execution))
         new-test-result (TestResults. (:test-class old-test-result) (:test-method old-test-result) (cons latest-result (:results old-test-result)))]
     (store-results old-test-result new-test-result)))
   

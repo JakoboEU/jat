@@ -76,11 +76,11 @@
     (print-stack-trace actualexception)
     (cond
       (= (java.lang.Class/forName "junit.framework.AssertionFailedError")  (. actualexception getClass)) 
-      (Failure. :fail actualexception (duration-since starttime))
+      (Failure. :failed actualexception (duration-since starttime))
       (= (java.lang.Class/forName "java.lang.AssertionError") (. actualexception getClass)) 
-      (Failure. :fail actualexception (duration-since starttime))
+      (Failure. :failed actualexception (duration-since starttime))
       :else 
-      (Failure. :error actualexception (duration-since starttime)))))
+      (Failure. :errored actualexception (duration-since starttime)))))
 
 (defn run-test [test]
   "Runs the given test ensuring it is correctly set up and torn down."
