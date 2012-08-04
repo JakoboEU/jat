@@ -1,8 +1,12 @@
 (ns jat.junit (:use clojure.stacktrace))
 
-(defn- junit-version [suite]
+(defrecord Test [test-class test-method junit-version])
+
+(defrecord Failure [error-type exception])
+
+(defn- junit-version [junit-class]
   "Detects whether the unit test is junit 3 or junit 4 and returns the resulting keyword."
-  (if (. (Class/forName "junit.framework.TestCase") isAssignableFrom (:class suite))
+  (if (. (Class/forName "junit.framework.TestCase") isAssignableFrom junit-class)
     :junit3
     :junit4))
 
@@ -29,66 +33,38 @@
 
 (def is-junit3-teardown (partial is-junit3-method (fn [name] (. name equals "tearDown"))))
 
-(defmulti create-instance :version)
-(defmethod create-instance :junit3 [suite] (. (:class suite) newInstance))
-(defmethod create-instance :junit4 [suite] (. (:class suite) newInstance))
-
 (defn- methods 
   "Returns all methods on the test suite class based on a filter."
-  ([suite]
-  (methods identity suite))
-  ([f suite]
-  (filter f (. (:class suite) getMethods))))
+  ([junit-class]
+  (methods identity junit-class))
+  ([f junit-class]
+  (filter f (. junit-class getMethods))))
 
 (defmulti test-methods :version)
-(defmethod test-methods :junit4 [suite] (methods is-junit4-test suite))
-(defmethod test-methods :junit3 [suite] (methods is-junit3-test suite))
+(defmethod test-methods :junit4 [junit-map] (methods is-junit4-test (:junit-class junit-map)))
+(defmethod test-methods :junit3 [junit-map] (methods is-junit3-test (:junit-class junit-map)))
 
-(defmulti setup-methods :version)
-(defmethod setup-methods :junit4 [suite] (methods is-junit4-setup suite))
-(defmethod setup-methods :junit3 [suite] (methods is-junit3-setup suite))
+(defn create-tests-from [junit-class]
+  "Given a class, create a set of tests from it."
+  (let [junit-version (junit-version junit-class) 
+        test-methods (test-methods {:version junit-version :junit-class junit-class})]
+    (map (fn [m] (Test. junit-class m junit-version)) test-methods)))
 
-(defmulti teardown-methods :version)
-(defmethod teardown-methods :junit4 [suite] (methods is-junit4-teardown suite))
-(defmethod teardown-methods :junit3 [suite] (methods is-junit3-teardown suite))
+(defn- invoke-methods [instance methods] 
+  "Invoke the required methods on the given class instance."
+  (map #(. % invoke instance) methods))
 
-(defn- create-tests [suite]
-  "Turns all methods in to a test map"
-  (map (fn [method] {:method method :success :not-run :error nil :duration -1}) (test-methods suite)))
+(defmulti invoke-setup-methods (fn [test inst] (:junit-version test)))
+(defmethod invoke-setup-methods :junit4 [test inst] 
+  (invoke-methods inst (methods is-junit4-setup (:test-class test))))
+(defmethod invoke-setup-methods :junit3 [test inst] 
+  (invoke-methods inst (methods is-junit3-setup (:test-class test))))
 
-(defn- add-property [suite property-key property-generator]
-  "Adds a new property to a suite map"
-  (assoc suite property-key (property-generator suite)))
-
-(defn create-suite [class]
-  "Given a class, create a test suite from it."
-  (let [suite {:class class}]
-    (-> suite
-      (add-property :version junit-version)
-      (add-property :instance create-instance)
-      (add-property :tests create-tests)
-      (add-property :setup-methods setup-methods)
-      (add-property :teardown-methods teardown-methods))))
-
-(defn- errored [test error]
-  "Mark a test as errored"
-  (assoc test :success :error :error error :error-message (. error getMessage)))
-
-(defn- failed [test error]
-  "Mark a test as failed"
-  (assoc test :success :failed :error error :error-message (. error getMessage)))
-
-(defn- pass [test]
-  "Mark a test as passed"
-  (assoc test :success :passed :error nil :error-message nil))
-
-(defn- invoke-methods [key testsuite] 
-  "Invoke the required methods on the test suite. e.g. key :setup-methods would invoke all set up methods."
-  (map #(. % invoke class) (key testsuite)))
-  
-(def setup (partial invoke-methods :setup-methods))
-
-(def teardown (partial invoke-methods :teardown-methods))
+(defmulti invoke-teardown-methods (fn [test inst] (:junit-version test)))
+(defmethod invoke-teardown-methods :junit4 [test inst] 
+  (invoke-methods inst (methods is-junit4-teardown (:test-class test))))
+(defmethod invoke-teardown-methods :junit3 [test inst] 
+  (invoke-methods inst (methods is-junit3-teardown (:test-class test))))
 
 (defn- handle-error [test exception]
   "Handle a test error and decide whether the test failed or errored"
@@ -96,29 +72,24 @@
     (println "Got error in test " (:method test))
     (print-stack-trace actualexception)
     (cond
-      (= (java.lang.Class/forName "junit.framework.AssertionFailedError") (. actualexception getClass)) (failed test actualexception)
-      (= (java.lang.Class/forName "java.lang.AssertionError") (. actualexception getClass)) (failed test actualexception)
-      :else (errored test actualexception))))
+      (= (java.lang.Class/forName "junit.framework.AssertionFailedError")  (. actualexception getClass)) 
+      (Failure. :fail actualexception)
+      (= (java.lang.Class/forName "java.lang.AssertionError") (. actualexception getClass)) 
+      (Failure. :fail actualexception)
+      :else 
+      (Failure. :error actualexception))))
 
-(defn run-test [suite test]
-  "Runs the inidividual test in the given suite"
-  (let [starttime (java.lang.System/currentTimeMillis)]
+(defn run-test [test]
+  "Runs the given test ensuring it is correctly set up and torn down."
+  (let [starttime (java.lang.System/currentTimeMillis) 
+        instance (.newInstance (:test-class test))
+        test-args (make-array Object 0)]
 	  (try
 	    (do
-	      (setup suite)
-	      (. (:method test) invoke (:instance suite) (make-array Object 0))
-	      (teardown suite)
-	      (assoc (pass test) :duration (- (java.lang.System/currentTimeMillis) starttime)))
+	      (invoke-setup-methods test instance)
+	      (. (:test-method test) invoke instance test-args)
+	      (invoke-teardown-methods test instance)
+           (Failure. :passed nil))
 	    (catch java.lang.Throwable error (handle-error test error)))))
     
-(defn run-suite 
-  "Execute all tests in the given test suite"
-  [suite]
-  (loop 
-    [test (first (:tests suite)) 
-     moretests (rest (:tests suite)) 
-     results ()]
-    (let [new-results (conj results (run-test suite test))]
-      (if (empty? moretests)
-        (assoc suite :tests new-results)
-        (recur (first moretests) (rest moretests) new-results)))))
+

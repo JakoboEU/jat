@@ -14,10 +14,9 @@ In addition the lack of development on JUnit Analysis Server (http://www.junit.o
 
 Introduction to Code
 ------------------------------
-The main entry point is the junit-server namespace (work backwards from the execute function).
-A test suite is a junit test class and all tests methods defined in that class.
+The main entry point is the jat namespace (work backwards from the jat.core/execute function).
 A test is a single test method.
-A suite is stored as a record in Mongo with all of its tests.
+A set of historical test results are stored in mongo.
 
 Setting Up JAT
 ------------------------
@@ -41,18 +40,16 @@ Using JAT in the Real World
 --------------------------------------------
 The following shows how to call the execute function with the correct configuration:
 
-(def results (execute {
-          :sorting-alg :most-errored-first 
-          :build "2"
-          :time (java.lang.System/currentTimeMillis)
-          :classnames (map #(java.lang.Class/forName %) (list 
+(def config (Configuration. "build 1" (java.lang.System/currentTimeMillis)
+          (map #(java.lang.Class/forName %) (list 
                         "jamesr.tests.JUnit3TypeTest" 
                         "jamesr.tests.JUnit4TypeTest" 
                         "jamesr.tests.JUnit3FailingTest" 
-                        "jamesr.tests.JUnit4FailingTest"))}))
+                        "jamesr.tests.JUnit4FailingTest"))))
+
+(execute config)
 
 The configuration parameters are:
-:sorting-alg 	 	The order to run the tests in.  Current options are :most-errored-first or :fastest-first
 :build			The build number of this test run.  Used for providing information on a per build basis.
 :time			The time the build was started
 :classnames		A set of JUnit tests to run (must be on the classpath with all dependencies).

@@ -11,53 +11,50 @@
 (defn view-error [test]
   (print-stack-trace (:error test)))
 
+(defn verify-test [junit-version junit-class junit-method-name test]
+  (is (= junit-version (:junit-version test)))
+  (is (= junit-class (:test-class test)))
+  (is (= junit-method-name (.getName (:test-method test)))))
+
 (deftest should-create-junit3-suite-with-correct-values []
-  (let [suite (create-suite junit3-test)]
-    (is (= :junit3 (:version suite)))
-    (is (= 1 (count (:setup-methods suite))))
-    (is (= 1 (count (:teardown-methods suite))))
-    (is (= 2 (count (:tests suite))))))
+  (let [tests (create-tests-from junit3-test)]
+    (is (= 2 (count tests)))
+    (verify-test :junit3 junit3-test "testSomething" (first tests))
+    (verify-test :junit3 junit3-test "testSomethingAgain" (last tests))))
 
 (deftest should-create-junit4-suite-with-correct-values []
-  (let [suite (create-suite junit4-test)]
-    (is (= :junit4 (:version suite)))
-    (is (= 1 (count (:setup-methods suite))))
-    (is (= 1 (count (:teardown-methods suite))))
-    (is (= 2 (count (:tests suite))))))
+  (let [tests (create-tests-from junit4-test)]
+    (is (= 2 (count tests)))
+    (verify-test :junit4 junit4-test "shouldDoSomething" (first tests))
+    (verify-test :junit4 junit4-test "shouldDoSomethingAgain" (last tests))))
 
-(deftest should-run-junit3-suite []
-  (let [suite (run-suite (create-suite junit3-test))]
-    (is (= 2 (count (filter #(= :passed (:success %)) (:tests suite)))))
-    (is (= 2 (count (filter #(<= 0 (:duration %)) (:tests suite)))))
-    (is (= 2 (count (filter #(= nil (:error %)) (:tests suite)))))))
+(deftest should-run-junit3-test []
+  (let [test (first (create-tests-from junit3-test)) 
+        result (run-test test)]
+    (is (= :passed (:error-type result)))
+    (is (nil? (:exception result)))))
     
-(deftest should-run-junit4-suite []
-  (let [suite (run-suite (create-suite junit4-test))]
-    (is (= 2 (count (filter #(= :passed (:success %)) (:tests suite)))))
-    (is (= 2 (count (filter #(<= 0 (:duration %)) (:tests suite)))))
-    (is (= 2 (count (filter #(= nil (:error %)) (:tests suite)))))))   
+(deftest should-run-junit4-test []
+  (let [test (first (create-tests-from junit4-test)) 
+        result (run-test test)]
+    (is (= :passed (:error-type result)))
+    (is (nil? (:exception result))))) 
            
-(deftest should-handle-failed-for-junit3-suite []
-  (let [
-        suite (run-suite (create-suite junit3-fail-test)) 
-        failures (filter #(= :failed (:success %)) (:tests suite))
-        errors (filter #(= :error (:success %)) (:tests suite))]
-    (is (= 1 (count failures)))
-    (is (= 1 (count errors)))
-    (is (= "testFailure" (. (:method (first errors)) getName)))
-    (is (= "testAssertion" (. (:method (first failures)) getName)))
-    (is (= "expected:<false> but was:<true>" (:error-message (first failures))))
-    (is (= "A test error message" (:error-message (first errors))))))
+(defn verify-failure [failure error-type error-message]
+  (is (= error-type (:error-type failure)))
+  (is (= error-message (.getMessage (:exception failure)))))
 
-(deftest should-handle-failed-for-junit4-suite []
-  (let [
-        suite (run-suite (create-suite junit4-fail-test)) 
-        failures (filter #(= :failed (:success %)) (:tests suite))
-        errors (filter #(= :error (:success %)) (:tests suite))]
-    (is (= 1 (count failures)))
-    (is (= 1 (count errors)))
-    (is (= "shouldFailWithError" (. (:method (first errors)) getName)))
-    (is (= "shouldFailWithAssertion" (. (:method (first failures)) getName)))
-    (is (= "expected:<false> but was:<true>" (:error-message (first failures))))
-    (is (= "A test error message" (:error-message (first errors))))))
+(deftest should-handle-failed-for-junit3-suite []
+  (let [tests (create-tests-from junit3-fail-test)
+        result-error (run-test (first tests))
+        result-failure (run-test (last tests))]
+    (verify-failure result-failure :fail "expected:<false> but was:<true>")
+    (verify-failure result-error :error "A test error message")))
+
+(deftest should-handle-failed-for-junit34suite []
+  (let [tests (create-tests-from junit4-fail-test)
+        result-error (run-test (first tests))
+        result-failure (run-test (last tests))]
+    (verify-failure result-failure :fail "expected:<false> but was:<true>")
+    (verify-failure result-error :error "A test error message")))
 

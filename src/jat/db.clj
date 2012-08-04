@@ -2,45 +2,31 @@
 
 (def connection (congo/make-connection "junit"))
 
-(defn load-suite 
+(defn load-test 
   "Loads the suite with the given name from mongo"
-  [suite-name]
+  [test-class test-method]
   (congo/with-mongo connection
-    (congo/fetch-one :suites
-               :where {:name suite-name})))
+    (congo/fetch-one :testresults
+               :where {:test-class test-class
+                       :test-method test-method})))
 
-(defn suite-exists? 
+(defn test-exists? 
   "Checks to see if the suite with the given name exists already"
-  [suite-name]
+  [test-class test-method]
   (congo/with-mongo connection
-    (< 0 (congo/fetch-count :suites
-                 :where {:name suite-name}))))
+    (< 0 (congo/fetch-count :testresults
+                 :where {:test-class test-class
+                       :test-method test-method}))))
 
-(defn save-suite
+(defn save-test-results
   "Save the given suite, assumes it is new"
-  [suite]
+  [test-results]
   (congo/with-mongo connection
-                    (congo/insert! :suites suite)))
+                    (congo/insert! :testresults test-results)))
 
-(defn update-suite 
+(defn update-test-results 
   "Updates an existing suite"
-  [oldsuite newsuite]
+  [oldresults newresults]
   (congo/with-mongo connection
-                    (congo/update! :suites oldsuite newsuite)))
+                    (congo/update! :testresults oldresults newresults)))
 
-(defn- get-only [keys]
-  (congo/with-mongo connection
-                    (congo/fetch :suites :only keys)))
-
-(def last-durations #(get-only [:name :last-total-duration]))
-
-(defn last-success-rate []
-  (map 
-    (fn [r] {:name (:name r) :last-success-rate (/ (:last-pass-count r) (:last-total-test-count r))}) 
-    (get-only [:name :last-total-test-count :last-pass-count])))
-  
-(defn configure 
-  "Configures indexes on the suite collection"
-  []
-  (congo/with-mongo connection
-                    (congo/add-index! :suites {:name "name" :unique true})))
