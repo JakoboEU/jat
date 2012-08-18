@@ -1,4 +1,4 @@
-(ns jat.junit
+(ns jat.test.junit
   (:use jat.junit
         clojure.test
         clojure.stacktrace))
@@ -48,13 +48,13 @@
   (let [tests (create-tests-from junit3-fail-test)
         result-error (run-test (first tests))
         result-failure (run-test (last tests))]
-    (verify-failure result-failure :fail "expected:<false> but was:<true>")
-    (verify-failure result-error :error "A test error message")))
+    (verify-failure result-failure :failed "expected:<false> but was:<true>")
+    (verify-failure result-error :errored "A test error message")))
 
 (deftest should-handle-failed-for-junit34suite []
   (let [tests (create-tests-from junit4-fail-test)
         result-error (run-test (first tests))
         result-failure (run-test (last tests))]
-    (verify-failure result-failure :fail "expected:<false> but was:<true>")
-    (verify-failure result-error :error "A test error message")))
+    (verify-failure result-failure :failed "expected:<false> but was:<true>")
+    (verify-failure result-error :errored "A test error message")))
 
