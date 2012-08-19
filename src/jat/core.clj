@@ -1,7 +1,7 @@
 (ns jat.core (:require [jat.junit :as junit] [jat.db :as db] [jat.sort :as sort]))
 
 (defrecord TestResult [buildnum run-time error-type exception duration])
-(defrecord TestResults [test-class test-method results])
+(defrecord TestResults [test-class test-method last-duration last-error-type results])
 (defrecord Configuration [buildnum run-time test-classes])
 
 (defn- item-name [x] (.getName x))
@@ -11,7 +11,7 @@
         method (item-name (:test-method test))]
   (if (db/test-exists? clazz method)
     (db/load-test clazz method)
-    (TestResults. clazz method []))))
+    (TestResults. clazz method 0 :passed []))))
 
 (.setDynamic #'load-results)
 
@@ -40,8 +40,10 @@
 (defn execute-test [test buildnum run-time]
   (let [old-test-result (load-results test)
         test-execution (junit/run-test test)
-        latest-result (TestResult. buildnum run-time (:error-type test-execution) (error-message test-execution) (:duration test-execution))
-        new-test-result (TestResults. (:test-class old-test-result) (:test-method old-test-result) (cons latest-result (:results old-test-result)))]
+        error-type (:error-type test-execution)
+        duration (:duration test-execution)
+        latest-result (TestResult. buildnum run-time error-type (error-message test-execution) duration)
+        new-test-result (TestResults. (:test-class old-test-result) (:test-method old-test-result) duration error-type (cons latest-result (:results old-test-result)))]
     (store-results old-test-result new-test-result)))
   
 (defn execute [configuration]
