@@ -40,19 +40,14 @@ Using JAT in the Real World
 --------------------------------------------
 The following shows how to call the execute function with the correct configuration:
 
-(def config (Configuration. "build 1" (java.lang.System/currentTimeMillis)
-          (map #(java.lang.Class/forName %) (list 
-                        "jamesr.tests.JUnit3TypeTest" 
-                        "jamesr.tests.JUnit4TypeTest" 
-                        "jamesr.tests.JUnit3FailingTest" 
-                        "jamesr.tests.JUnit4FailingTest"))))
+(def junit3-test (java.lang.Class/forName "jamesr.tests.JUnit3TypeTest"))
+(def junit4-test (java.lang.Class/forName "jamesr.tests.JUnit4TypeTest"))
+
+(def config (Configuration. "t1" 123456 [junit3-test junit4-test]))
 
 (execute config)
 
-The configuration parameters are:
-:build			The build number of this test run.  Used for providing information on a per build basis.
-:time			The time the build was started
-:classnames		A set of JUnit tests to run (must be on the classpath with all dependencies).
+See the core namespace for the configuration record.
 
 Work Todo
 ------------------
