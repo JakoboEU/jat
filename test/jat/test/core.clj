@@ -24,5 +24,5 @@
               (is (= 12345 (:run-time test-run-details)))
               (is (= "build" (:buildnum test-run-details)))
               (is (= :passed (:error-type test-run-details)))
-              (is (not (< 0 (:duration test-run-details))))))))
+              (is (<= 0 (:duration test-run-details)))))))
          

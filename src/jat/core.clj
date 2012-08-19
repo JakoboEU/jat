@@ -11,7 +11,7 @@
         method (item-name (:test-method test))]
   (if (db/test-exists? clazz method)
     (db/load-test clazz method)
-    (TestResults. clazz method ()))))
+    (TestResults. clazz method []))))
 
 (.setDynamic #'load-results)
 
