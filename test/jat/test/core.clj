@@ -13,8 +13,8 @@
   new-test)
 
 (deftest should-execute-tests-and-append-result []
-        (binding [jat.core/load-results mock-load-results
-                  jat.core/store-results mock-store-results]
+        (with-redefs [jat.core/load-results mock-load-results
+                      jat.core/store-results mock-store-results]
           (let [test (first (create-tests-from junit4-test))
                 test-result (execute-test test "build" 12345)]
             (is (= 1 (count (:results test-result))))

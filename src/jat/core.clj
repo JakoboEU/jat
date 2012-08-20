@@ -13,15 +13,11 @@
     (db/load-test clazz method)
     (TestResults. clazz method 0 :passed []))))
 
-(.setDynamic #'load-results)
-
 (defn store-results [old-test-result new-test-result]
   (if (db/test-exists? (:test-class old-test-result) (:test-method old-test-result))
     (db/update-test-results old-test-result new-test-result)
     (db/save-test-results new-test-result))
   new-test-result)
-
-(.setDynamic #'store-results)
 
 (defn stack-trace-to-string [exception] 
   (let [out (java.io.StringWriter.)
